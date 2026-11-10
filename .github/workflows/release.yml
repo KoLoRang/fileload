@@ -21,6 +21,7 @@ concurrency:
 env:
   TAG: ${{ github.event.inputs.tag || github.ref_name }}
   WINFSP_TAG: v2.1 # installer.iss bundles it as dist\winfsp-2.1.msi
+  INNO_TAG: is-6_7_4 # source of ChineseSimplified.isl for Inno Setup 6
 
 jobs:
   version:
@@ -97,8 +98,12 @@ jobs:
             $mingw = "C:\ProgramData\mingw64\mingw64\bin"
           }
           $mingw | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-          choco install innosetup -y --no-progress
-          "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) { choco install innosetup --version=6.7.4 -y --no-progress }
+          $inno = "C:\Program Files (x86)\Inno Setup 6"
+          if (-not (Test-Path "$inno\ISCC.exe")) { throw "Inno Setup 6 not found" }
+          $inno | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          # the Simplified Chinese translation ships as "unofficial" in Inno Setup's sources only
+          Invoke-WebRequest "https://raw.githubusercontent.com/jrsoftware/issrc/$env:INNO_TAG/Files/Languages/Unofficial/ChineseSimplified.isl" -OutFile "$inno\Languages\ChineseSimplified.isl"
           python -m pip install --quiet pillow
       - name: WinFsp headers + MSI
         run: |
