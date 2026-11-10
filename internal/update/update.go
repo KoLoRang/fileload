@@ -20,12 +20,6 @@ import (
 // scripts read it (or override it with -ldflags "-X fileload/internal/update.Version=1.2.3").
 var Version = "1.0.0"
 
-// EmbeddedToken is an optional read-only GitHub token baked in at build time
-// (-ldflags "-X fileload/internal/update.EmbeddedToken=github_pat_...") so
-// users of the private repository need not enter one. A token saved in the
-// About page takes precedence.
-var EmbeddedToken = ""
-
 const (
 	Owner          = "KoLoRang"
 	Repo           = "fileload"
@@ -44,8 +38,7 @@ type Info struct {
 	HasUpdate  bool   `json:"hasUpdate"`
 	PageURL    string `json:"pageUrl"`
 
-	// installer asset for this OS; AssetURL is the API URL (works for
-	// private repositories with a token)
+	// installer asset for this OS; AssetURL is its API URL
 	InstallerName string `json:"installerName"`
 	InstallerSize int64  `json:"installerSize"`
 	AssetURL      string `json:"assetUrl"`
@@ -54,7 +47,7 @@ type Info struct {
 
 var client = &http.Client{Timeout: 15 * time.Second}
 
-func newRequest(ctx context.Context, url, token, accept string) (*http.Request, error) {
+func newRequest(ctx context.Context, url, accept string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -62,16 +55,12 @@ func newRequest(ctx context.Context, url, token, accept string) (*http.Request, 
 	req.Header.Set("Accept", accept)
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	req.Header.Set("User-Agent", "FileLoad/"+Version)
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
 	return req, nil
 }
 
 // Check asks GitHub for the latest (non-draft, non-prerelease) release.
-// token may be "" for a public repository.
-func Check(ctx context.Context, token string) (Info, error) {
-	req, err := newRequest(ctx, apiBase+"/releases/latest", token, "application/vnd.github+json")
+func Check(ctx context.Context) (Info, error) {
+	req, err := newRequest(ctx, apiBase+"/releases/latest", "application/vnd.github+json")
 	if err != nil {
 		return Info{}, err
 	}
@@ -82,14 +71,10 @@ func Check(ctx context.Context, token string) (Info, error) {
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	switch {
-	case resp.StatusCode == http.StatusUnauthorized:
-		return Info{}, errors.New("GitHub 访问令牌无效或已过期，请重新填写")
 	case resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests:
-		return Info{}, fmt.Errorf("GitHub 拒绝访问（HTTP %d，可能是令牌无权限或请求过于频繁），请稍后重试", resp.StatusCode)
-	case resp.StatusCode == http.StatusNotFound && token == "":
-		return Info{}, errors.New("仓库为私有：请在下方填写 GitHub 访问令牌（对本仓库有 Contents 只读权限），或点「打开 Releases 页」手动查看")
+		return Info{}, fmt.Errorf("GitHub 请求过于频繁（HTTP %d），请稍后重试", resp.StatusCode)
 	case resp.StatusCode == http.StatusNotFound:
-		return Info{}, errors.New("没有找到已发布的版本（或令牌无权访问该仓库）")
+		return Info{}, errors.New("还没有已发布的版本")
 	case resp.StatusCode != http.StatusOK:
 		return Info{}, fmt.Errorf("检查更新失败：HTTP %d", resp.StatusCode)
 	}

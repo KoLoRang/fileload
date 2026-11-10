@@ -375,8 +375,6 @@ async function loadAbout() {
   ui.about = await api("About");
   $("aboutVersion").textContent = "v" + ui.about.version;
   $("releasesUrl").textContent = ui.about.releasesUrl;
-  $("tokenInput").placeholder = ui.about.hasToken ? "已保存令牌（输入新令牌可替换）"
-    : ui.about.builtinAuth ? "本版本已内置只读令牌，通常无需填写" : "github_pat_...";
 }
 
 function renderUpdate(u) {
@@ -559,21 +557,6 @@ function wire() {
   $("updatePageBtn").addEventListener("click", () => openURL(ui.update?.pageUrl || ui.about.releasesUrl));
   $("updateInstallBtn").addEventListener("click", installUpdate);
   $("openReleasesBtn").addEventListener("click", () => openURL(ui.about.releasesUrl));
-  const saveToken = async (token) => {
-    try {
-      await api("SetUpdateToken", token);
-      $("tokenInput").value = "";
-      await loadAbout();
-      setMsg($("tokenMsg"), token ? "令牌已保存，仅存于本机" : "令牌已清除", "ok");
-    } catch (e) { setMsg($("tokenMsg"), errText(e), "err"); }
-  };
-  $("saveTokenBtn").addEventListener("click", () => {
-    const v = $("tokenInput").value.trim();
-    if (!v) return setMsg($("tokenMsg"), "请先输入令牌", "err");
-    saveToken(v);
-  });
-  $("clearTokenBtn").addEventListener("click", () => saveToken(""));
-  $("tokenInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("saveTokenBtn").click(); });
 
   $("closeSel").addEventListener("change", () => api("SetCloseAction", $("closeSel").value));
   const answerClose = (action) => {

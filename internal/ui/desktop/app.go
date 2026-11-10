@@ -10,7 +10,6 @@
 package desktop
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"net/url"
@@ -150,24 +149,14 @@ func (a *App) DeleteCommand(name string) error { return a.svc.DeleteCommand(name
 type AboutInfo struct {
 	Version     string `json:"version"`
 	ReleasesURL string `json:"releasesUrl"`
-	HasToken    bool   `json:"hasToken"`    // token saved in the About page
-	BuiltinAuth bool   `json:"builtinAuth"` // read-only token baked into this build
 }
 
 func (a *App) About() AboutInfo {
-	return AboutInfo{
-		Version: update.Version, ReleasesURL: update.ReleasesWebURL,
-		HasToken: a.store.UpdateToken() != "", BuiltinAuth: update.EmbeddedToken != "",
-	}
+	return AboutInfo{Version: update.Version, ReleasesURL: update.ReleasesWebURL}
 }
 
-func (a *App) SetUpdateToken(token string) error { return a.store.SetUpdateToken(token) }
-
-// updateToken prefers the user's token over the one built in.
-func (a *App) updateToken() string { return cmp.Or(a.store.UpdateToken(), update.EmbeddedToken) }
-
 func (a *App) CheckUpdate(ctx context.Context) (update.Info, error) {
-	info, err := update.Check(ctx, a.updateToken())
+	info, err := update.Check(ctx)
 	if err == nil {
 		a.updMu.Lock()
 		a.latest = &info
@@ -190,7 +179,7 @@ func (a *App) InstallUpdate(ctx context.Context) error {
 	if info == nil || !info.HasUpdate {
 		return errors.New("请先检查更新")
 	}
-	path, err := update.Download(ctx, *info, a.updateToken(), func(done, total int64) {
+	path, err := update.Download(ctx, *info, func(done, total int64) {
 		a.app.Event.Emit("update-progress", map[string]int64{"done": done, "total": total})
 	})
 	if err != nil {

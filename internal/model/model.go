@@ -68,9 +68,3 @@ func (a CloseAction) Valid() bool { return a == CloseAsk || a == CloseTray || a 
 type UISettings struct {
 	CloseAction CloseAction `json:"closeAction"`
 }
-
-// UpdateSettings hold the GitHub token used to read releases of the
-// private repository.
-type UpdateSettings struct {
-	Token string `json:"githubToken"`
-}

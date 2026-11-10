@@ -17,17 +17,16 @@ import (
 type Progress func(done, total int64)
 
 // downloadClient has no overall timeout (installers are large); the
-// context cancels it. Go drops the Authorization header when GitHub
-// redirects to its storage host, which is what that host expects.
+// context cancels it.
 var downloadClient = &http.Client{}
 
 // Download fetches the installer of info into a temp directory, verifies
 // its size and sha256 digest (when GitHub provides one) and returns the path.
-func Download(ctx context.Context, info Info, token string, progress Progress) (string, error) {
+func Download(ctx context.Context, info Info, progress Progress) (string, error) {
 	if info.AssetURL == "" || info.InstallerName == "" {
 		return "", errors.New("该版本没有适用于本系统的安装包，请打开发布页手动下载")
 	}
-	req, err := newRequest(ctx, info.AssetURL, token, "application/octet-stream")
+	req, err := newRequest(ctx, info.AssetURL, "application/octet-stream")
 	if err != nil {
 		return "", err
 	}

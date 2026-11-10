@@ -21,7 +21,6 @@ type Store struct {
 	mounts   *jsonFile[[]model.MountRecord]
 	commands *jsonFile[[]model.Command]
 	ui       *jsonFile[model.UISettings]
-	update   *jsonFile[model.UpdateSettings]
 }
 
 // Open returns the store rooted at dir (nothing is read until first use).
@@ -33,7 +32,6 @@ func Open(dir string) *Store {
 		mounts:   newJSONFile[[]model.MountRecord](p("mounts.json")),
 		commands: newJSONFile[[]model.Command](p("commands.json")),
 		ui:       newJSONFile[model.UISettings](p("ui.json")),
-		update:   newJSONFile[model.UpdateSettings](p("update.json")),
 	}
 }
 
@@ -177,11 +175,7 @@ func (s *Store) DeleteCommand(name string) error {
 	})
 }
 
-// ---- ui / update settings ----
+// ---- ui settings ----
 
 func (s *Store) UI() model.UISettings           { return s.ui.get() }
 func (s *Store) SetUI(v model.UISettings) error { return s.ui.set(v) }
-func (s *Store) UpdateToken() string            { return s.update.get().Token }
-func (s *Store) SetUpdateToken(token string) error {
-	return s.update.set(model.UpdateSettings{Token: strings.TrimSpace(token)})
-}

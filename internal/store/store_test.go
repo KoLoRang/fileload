@@ -11,7 +11,7 @@ import (
 // v1.x wrote these exact shapes; they must keep loading.
 const v1Mounts = `[
   {"name":"a@h","host":"h","port":22,"user":"a","password":"pw","keyPath":"",
-   "drive":"Z:","root":"/srv","jmsAsset":"node-1"}
+   "drive":"Z:","root":"/srv","legacyField":"x"}
 ]`
 
 func TestLoadsV1Files(t *testing.T) {

@@ -34,8 +34,8 @@ func TestDownload(t *testing.T) {
 	payload := []byte("installer-bytes")
 	sum := sha256.Sum256(payload)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer tok" || r.Header.Get("Accept") != "application/octet-stream" {
-			http.Error(w, "bad headers", http.StatusUnauthorized)
+		if r.Header.Get("Accept") != "application/octet-stream" {
+			http.Error(w, "bad headers", http.StatusBadRequest)
 			return
 		}
 		_, _ = w.Write(payload)
@@ -45,7 +45,7 @@ func TestDownload(t *testing.T) {
 	info := Info{AssetURL: srv.URL, InstallerName: "FileLoad-Setup-9.9.9.exe", InstallerSize: int64(len(payload)),
 		Digest: "sha256:" + hex.EncodeToString(sum[:])}
 	var last int64
-	path, err := Download(context.Background(), info, "tok", func(done, _ int64) { last = done })
+	path, err := Download(context.Background(), info, func(done, _ int64) { last = done })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestDownload(t *testing.T) {
 	}
 
 	info.Digest = "sha256:00"
-	if _, err := Download(context.Background(), info, "tok", nil); err == nil {
+	if _, err := Download(context.Background(), info, nil); err == nil {
 		t.Fatal("digest mismatch not detected")
 	}
 }

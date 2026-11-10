@@ -22,13 +22,8 @@ export CGO_CFLAGS="-mmacosx-version-min=13.0 -I$VENDOR/include/fuse"
 export CGO_LDFLAGS="-mmacosx-version-min=13.0"
 export MACOSX_DEPLOYMENT_TARGET=13.0
 
-# optional: bake a read-only GitHub token (fine-grained, this repo, Contents:
-# read) into the app so users of the private repo get updates without one
-LDFLAGS="-s -w"
-[ -n "${FILELOAD_GH_TOKEN:-}" ] && LDFLAGS="$LDFLAGS -X fileload/internal/update.EmbeddedToken=$FILELOAD_GH_TOKEN"
-
 build() { # $1 = GOARCH, $2 = output
-	GOARCH=$1 go build -trimpath -tags production -ldflags "$LDFLAGS" -o "$2" ./cmd/fileload
+	GOARCH=$1 go build -trimpath -tags production -ldflags "-s -w" -o "$2" ./cmd/fileload
 }
 
 rm -rf "$APP"
