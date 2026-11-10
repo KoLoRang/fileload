@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -156,36 +157,60 @@ func (s *Server) session(nc ssh.NewChannel) {
 	}
 	defer up.Close()
 
-	go forward(reqs, up) // ends when ch closes
+	// replies to client requests (e.g. "exec") that are still on their
+	// way back must reach the client before ch is closed
+	var pending atomic.Int32
+	go forward(reqs, up, &pending) // ends when ch closes
 	upDone := make(chan struct{})
-	go func() { forward(upReqs, ch); close(upDone) }()
+	go func() { forward(upReqs, ch, nil); close(upDone) }()
 
-	stdout := make(chan struct{})
-	go func() { _, _ = io.Copy(ch, up); close(stdout) }()
-	go func() { _, _ = io.Copy(ch.Stderr(), up.Stderr()) }()
+	// output is done once both stdout and stderr hit EOF; closing ch
+	// earlier would cut off the tail of stderr
+	var outputs sync.WaitGroup
+	outputs.Go(func() { _, _ = io.Copy(ch, up) })
+	outputs.Go(func() { _, _ = io.Copy(ch.Stderr(), up.Stderr()) })
+	output := make(chan struct{})
+	go func() { outputs.Wait(); close(output) }()
 	go func() {
 		_, _ = io.Copy(up, ch)
 		_ = up.CloseWrite()
 	}()
 
 	select {
-	case <-stdout: // command finished
+	case <-output: // command finished
 	case <-s.ctx.Done():
 		return
 	}
-	select { // let exit-status reach the client before closing
+	// let exit-status and pending replies reach the client before closing
+	deadline := time.After(time.Second)
+	select {
 	case <-upDone:
-	case <-time.After(time.Second):
+	case <-deadline:
+		return
+	}
+	for pending.Load() > 0 {
+		select {
+		case <-deadline:
+			return
+		case <-time.After(5 * time.Millisecond):
+		}
 	}
 }
 
 // forward relays requests until reqs closes; failures are answered as
-// refused so the sender never blocks.
-func forward(reqs <-chan *ssh.Request, dst ssh.Channel) {
+// refused so the sender never blocks. pending, if set, counts requests
+// whose reply has not been sent back yet.
+func forward(reqs <-chan *ssh.Request, dst ssh.Channel, pending *atomic.Int32) {
 	for r := range reqs {
+		if pending != nil {
+			pending.Add(1)
+		}
 		ok, err := dst.SendRequest(r.Type, r.WantReply, r.Payload)
 		if r.WantReply {
 			_ = r.Reply(ok && err == nil, nil)
+		}
+		if pending != nil {
+			pending.Add(-1)
 		}
 	}
 }
