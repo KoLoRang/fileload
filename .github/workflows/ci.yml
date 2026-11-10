@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["site/**", "docs/**", "**.md"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Vet + test (macOS)
+        run: |
+          scripts/fetch_fuse_t.sh
+          export CGO_CFLAGS="-mmacosx-version-min=13.0 -I$PWD/build/darwin/vendor/include/fuse"
+          export CGO_LDFLAGS="-mmacosx-version-min=13.0"
+          go vet ./...
+          go test ./...
+      - name: Vet (Windows, cross)
+        run: GOOS=windows go vet ./...

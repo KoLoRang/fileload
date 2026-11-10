@@ -1,0 +1,155 @@
+# Push a tag "vX.Y.Z" (after `python scripts/bump_version.py X.Y.Z`) to build
+# the macOS dmg and the Windows installer and publish them as a GitHub
+# Release. The in-app updater picks them up by name: *.dmg / *Setup*.exe.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)build, e.g. v1.0.0
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+  WINFSP_TAG: v2.1 # installer.iss bundles it as dist\winfsp-2.1.msi
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - id: v
+        name: Tag must match internal/update/update.go
+        run: |
+          want="${TAG#v}"
+          have=$(sed -n 's/^var Version = "\(.*\)"/\1/p' internal/update/update.go)
+          if [ "$want" != "$have" ]; then
+            echo "::error::tag $TAG but update.go says $have — run: python scripts/bump_version.py $want"
+            exit 1
+          fi
+          grep -q "#define MyAppVersion \"$want\"" build/windows/installer.iss || { echo "::error::installer.iss is not $want"; exit 1; }
+          grep -q "\"ProductVersion\", \"$want\"" build/windows/app.rc || { echo "::error::app.rc is not $want"; exit 1; }
+          echo "version=$want" >> "$GITHUB_OUTPUT"
+
+  macos:
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Test
+        run: |
+          scripts/fetch_fuse_t.sh
+          export CGO_CFLAGS="-mmacosx-version-min=13.0 -I$PWD/build/darwin/vendor/include/fuse"
+          export CGO_LDFLAGS="-mmacosx-version-min=13.0"
+          go vet ./...
+          go test ./...
+      - name: Build universal app + dmg
+        run: ARCH=universal scripts/build_macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/FileLoad-${{ needs.version.outputs.version }}-macos.dmg
+          if-no-files-found: error
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Toolchain (MinGW gcc/windres, Inno Setup)
+        run: |
+          $mingw = @("C:\mingw64\bin", "C:\ProgramData\mingw64\mingw64\bin") | Where-Object { Test-Path "$_\gcc.exe" } | Select-Object -First 1
+          if (-not $mingw) {
+            choco install mingw -y --no-progress
+            $mingw = "C:\ProgramData\mingw64\mingw64\bin"
+          }
+          $mingw | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          choco install innosetup -y --no-progress
+          "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          python -m pip install --quiet pillow
+      - name: WinFsp headers + MSI
+        run: |
+          New-Item -ItemType Directory -Force winfsp_inc, dist | Out-Null
+          foreach ($h in "fuse.h", "fuse_common.h", "fuse_opt.h", "winfsp_fuse.h") {
+            Invoke-WebRequest "https://raw.githubusercontent.com/winfsp/winfsp/$env:WINFSP_TAG/inc/fuse/$h" -OutFile "winfsp_inc\$h"
+          }
+          "CPATH=$PWD\winfsp_inc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          gh release download $env:WINFSP_TAG -R winfsp/winfsp --pattern "winfsp-*.msi" --dir winfsp_msi
+          Move-Item (Get-ChildItem winfsp_msi\winfsp-*.msi | Select-Object -First 1).FullName dist\winfsp-2.1.msi
+      - name: Vet
+        run: go vet ./...
+      - name: Build FileLoad.exe
+        run: |
+          python assets/make_ico.py
+          windres --codepage=65001 -i build/windows/app.rc -O coff -o cmd/fileload/rsrc_windows_amd64.syso --target=pe-x86-64
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          go build -trimpath -tags production -ldflags "-s -w -H windowsgui" -o dist/FileLoad.exe ./cmd/fileload
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Build installer
+        run: |
+          ISCC.exe /Q build\windows\installer.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/FileLoad-Setup-${{ needs.version.outputs.version }}.exe
+          if-no-files-found: error
+
+  release:
+    needs: [version, macos, windows]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Publish
+        run: |
+          cd out
+          {
+            echo "### Downloads"
+            echo
+            echo "| File | SHA-256 |"
+            echo "| --- | --- |"
+            for f in *; do echo "| \`$f\` | \`$(sha256sum "$f" | cut -d' ' -f1)\` |"; done
+          } > ../checksums.md
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber *
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes --notes-file ../checksums.md *
+          fi
