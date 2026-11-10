@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FileLoad</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+<div class="app">
+  <!-- ============ left navigation ============ -->
+  <aside class="nav">
+    <div class="brand">
+      <img src="icon.png" alt="">
+      <span>FileLoad</span>
+    </div>
+
+    <button class="nav-item active" data-view="mount">
+      <svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-9Z"/><path d="M4 13h16M16.5 16h.01M13.5 16h.01"/></svg>
+      <span>目录挂载</span>
+    </button>
+    <button class="nav-item" data-view="rcc">
+      <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="m7.5 9.5 3 2.5-3 2.5M12.5 15h4"/></svg>
+      <span>命令挂载</span>
+    </button>
+    <button class="nav-item" data-view="about">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></svg>
+      <span>关于</span>
+      <span class="nav-badge hidden" id="aboutBadge" title="有新版本"></span>
+    </button>
+
+    <div class="nav-spacer"></div>
+
+    <div class="nav-status" id="navStatus">
+      <span class="dot"></span>
+      <div>
+        <div id="navStatusTitle">未挂载</div>
+        <div class="nav-status-sub" id="navStatusSub">命令未启用</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ content ============ -->
+  <main class="content">
+
+    <!-- ---------- 目录挂载 ---------- -->
+    <section class="view" id="view-mount">
+      <header class="page-head">
+        <h1>目录挂载</h1>
+        <p id="mountIntro">把 Linux 服务器上的目录映射到本地，用本地程序直接打开、编辑，改动自动回传服务器。</p>
+      </header>
+
+      <!-- current mount -->
+      <div class="card current hidden" id="currentCard">
+        <div class="drive-tile" id="curDrive">Z:</div>
+        <div class="current-main">
+          <div class="current-title">
+            <span id="curRoot">/</span>
+            <span class="chip" id="curChip">已挂载</span>
+          </div>
+          <div class="muted" id="curServer"></div>
+          <div class="muted small" id="curCache"></div>
+        </div>
+        <div class="current-actions">
+          <button class="btn" id="openDriveBtn">
+            <svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h5.5A2.5 2.5 0 0 1 20 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-9Z"/></svg>
+            <span id="revealLabel">在资源管理器中打开</span>
+          </button>
+          <button class="btn" id="unmountBtn">卸载</button>
+        </div>
+      </div>
+      <div class="infobar err deps hidden" id="depsBar">
+        <span id="depsMessage"></span>
+        <button class="btn primary hidden" id="installDepsBtn">一键安装驱动</button>
+      </div>
+      <div class="infobar hidden" id="mountMessage"></div>
+
+      <!-- history -->
+      <div class="card" id="historyCard">
+        <div class="card-head">
+          <h2>挂载记录</h2>
+          <span class="muted">一键恢复之前的挂载，自动使用保存的连接信息</span>
+        </div>
+        <div class="list" id="historyList"></div>
+      </div>
+
+      <!-- wizard -->
+      <div class="card" id="wizardCard">
+        <div class="card-head">
+          <h2>新建挂载</h2>
+          <span class="muted" id="connectedAs"></span>
+        </div>
+        <ol class="stepper" id="stepper">
+          <li data-step="1"><span class="num">1</span>连接服务器</li>
+          <li data-step="2"><span class="num">2</span>选择远程目录</li>
+          <li data-step="3"><span class="num">3</span>挂载到本地</li>
+        </ol>
+
+        <!-- step 1 -->
+        <div class="step" id="step1">
+          <div class="form">
+            <label for="savedSel">已保存配置</label>
+            <div class="row">
+              <select id="savedSel"></select>
+              <button class="btn subtle" id="delServerBtn" title="删除所选配置">删除</button>
+            </div>
+
+            <label for="host">主机</label>
+            <div class="row">
+              <input id="host" placeholder="例如 192.168.1.100 或 sftp.example.com" spellcheck="false">
+              <label class="inline" for="port">端口</label>
+              <input id="port" class="w-port" value="22" inputmode="numeric">
+            </div>
+
+            <label for="user">用户名</label>
+            <input id="user" spellcheck="false">
+
+            <label for="password">密码</label>
+            <input id="password" type="password" placeholder="使用私钥时可作为密钥口令">
+
+            <label for="keyPath">私钥路径</label>
+            <input id="keyPath" placeholder="可选，留空则用密码登录" spellcheck="false">
+          </div>
+          <div class="actions">
+            <span class="msg" id="connMsg"></span>
+            <span class="spacer"></span>
+            <button class="btn" id="toStep2Btn" disabled>下一步</button>
+            <button class="btn primary" id="connectBtn">连接</button>
+          </div>
+        </div>
+
+        <!-- step 2 -->
+        <div class="step hidden" id="step2">
+          <div class="pathbar">
+            <button class="icon-btn" id="upBtn" title="上级目录">
+              <svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+            </button>
+            <input id="pathInput" spellcheck="false" title="输入路径后回车直达">
+            <button class="icon-btn" id="refreshBtn" title="刷新">
+              <svg viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95M19 5v4h-4"/></svg>
+            </button>
+          </div>
+          <div class="filelist" id="fileList"></div>
+          <div class="actions">
+            <button class="btn" data-goto="1">上一步</button>
+            <span class="msg" id="browseMsg"></span>
+            <span class="spacer"></span>
+            <button class="btn primary" id="pickCurrentBtn">选择当前目录</button>
+          </div>
+        </div>
+
+        <!-- step 3 -->
+        <div class="step hidden" id="step3">
+          <dl class="summary">
+            <dt>服务器</dt><dd id="sumServer"></dd>
+            <dt>远程目录</dt><dd id="sumRoot" class="mono"></dd>
+            <dt id="targetLabel">本地盘符</dt>
+            <dd>
+              <select id="driveSel" class="w-drive"></select>
+              <input id="dirInput" class="mono hidden" spellcheck="false" placeholder="~/FileLoad/work">
+            </dd>
+          </dl>
+          <div class="actions">
+            <button class="btn" data-goto="2">上一步</button>
+            <span class="msg" id="mountMsg"></span>
+            <span class="spacer"></span>
+            <button class="btn primary" id="mountBtn">挂载</button>
+          </div>
+        </div>
+      </div>
+
+      <details class="card activity" id="activityCard">
+        <summary>最近活动 <span class="muted" id="activityCount"></span></summary>
+        <ul id="activityList"></ul>
+      </details>
+
+      <div class="card setting-row">
+        <div>
+          <div>关闭窗口时</div>
+          <div class="muted small" id="closeHint">托盘图标菜单里随时可以「退出」</div>
+        </div>
+        <select id="closeSel">
+          <option value="">每次询问</option>
+          <option value="tray">最小化到托盘（挂载保持）</option>
+          <option value="quit">退出并卸载</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- ---------- 命令挂载 ---------- -->
+    <section class="view hidden" id="view-rcc">
+      <header class="page-head">
+        <h1>命令挂载</h1>
+        <p>在本机终端里输入命令，免密 SSH 到服务器、进入挂载目录后执行：rcd 直接进入挂载目录，也可以添加自定义命令（如 claude、codex）。在挂载目录的子目录内执行时会进入对应的远程子目录。</p>
+      </header>
+
+      <div class="card status-card" id="rccStatusCard">
+        <div class="status-icon" id="rccIcon"></div>
+        <div class="status-main">
+          <div class="status-title" id="rccTitle">未启用</div>
+          <div class="muted" id="rccDesc">命令随目录挂载自动启用，卸载或退出时自动移除。</div>
+        </div>
+        <button class="btn primary" id="gotoMountBtn" data-nav="mount">去挂载目录</button>
+      </div>
+
+      <div class="card hidden" id="rccDetailCard">
+        <div class="card-head"><h2>运行信息</h2></div>
+        <dl class="summary">
+          <dt>挂载位置</dt><dd id="rccDrive" class="mono"></dd>
+          <dt>远程目录</dt><dd id="rccRoot" class="mono"></dd>
+          <dt>本地代理</dt><dd id="rccProxy" class="mono"></dd>
+          <dt>命令目录</dt><dd id="rccBin" class="mono"></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>命令</h2></div>
+        <div class="list" id="cmdList"></div>
+        <p class="hint" id="rccHint"></p>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2 id="cmdFormTitle">添加自定义命令</h2>
+          <span class="muted">同样先登录服务器并进入挂载目录，再执行这里填写的命令</span>
+        </div>
+        <div class="form">
+          <label for="cmdName">命令名</label>
+          <input id="cmdName" placeholder="例如 rgs，在本机终端输入它即可" spellcheck="false">
+          <label for="cmdLine">远程命令</label>
+          <input id="cmdLine" class="mono" placeholder="例如 git status && ls -la" spellcheck="false">
+          <label for="cmdDesc">说明</label>
+          <input id="cmdDesc" placeholder="可选">
+        </div>
+        <div class="actions">
+          <span class="msg" id="cmdMsg"></span>
+          <span class="spacer"></span>
+          <button class="btn hidden" id="cmdCancelBtn">取消编辑</button>
+          <button class="btn primary" id="cmdSaveBtn">添加</button>
+        </div>
+      </div>
+
+
+    </section>
+
+    <!-- ---------- 关于 ---------- -->
+    <section class="view hidden" id="view-about">
+      <header class="page-head">
+        <h1>关于</h1>
+        <p>SSH 云端目录映射本地盘，并提供在挂载目录下执行的远程命令。</p>
+      </header>
+
+      <div class="card status-card">
+        <img class="about-logo" src="icon.png" alt="">
+        <div class="status-main">
+          <div class="status-title">FileLoad</div>
+          <div class="muted">当前版本 <span class="mono" id="aboutVersion"></span></div>
+        </div>
+        <button class="btn primary" id="checkUpdateBtn">检查更新</button>
+      </div>
+
+      <div class="card hidden" id="updateCard">
+        <div class="card-head">
+          <h2 id="updateTitle"></h2>
+          <span class="muted" id="updateDate"></span>
+        </div>
+        <pre class="update-notes hidden" id="updateNotes"></pre>
+        <p class="muted small">「立即更新」会自动下载并安装新版本，完成后自动重启 FileLoad；如有挂载，会先上传未同步的文件再卸载。</p>
+        <div class="actions">
+          <span class="spacer"></span>
+          <button class="btn" id="updatePageBtn">查看发布说明</button>
+          <button class="btn primary hidden" id="updateInstallBtn">立即更新</button>
+        </div>
+        <div class="update-progress hidden" id="updateProgress">
+          <div class="bar"><div class="bar-fill" id="updateBar"></div></div>
+          <span class="muted small mono" id="updatePct"></span>
+        </div>
+      </div>
+      <div class="infobar hidden" id="updateMsg"></div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>GitHub 访问令牌</h2>
+          <span class="muted" id="tokenHint">仓库为私有，需令牌才能读取版本：在 GitHub「Settings → Developer settings → Fine-grained tokens」创建，仅授权本仓库、Contents 只读</span>
+        </div>
+        <div class="row">
+          <input id="tokenInput" type="password" placeholder="github_pat_..." spellcheck="false">
+          <button class="btn" id="saveTokenBtn">保存</button>
+          <button class="btn subtle" id="clearTokenBtn">清除</button>
+        </div>
+        <p class="msg" id="tokenMsg"></p>
+      </div>
+
+      <div class="card setting-row">
+        <div>
+          <div>Releases 页面</div>
+          <div class="muted small mono" id="releasesUrl"></div>
+        </div>
+        <button class="btn" id="openReleasesBtn">打开 Releases 页</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- close dialog -->
+<div class="modal hidden" id="closeModal">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="closeTitle">
+    <h3 id="closeTitle">关闭 FileLoad 窗口？</h3>
+    <p id="closeText">最小化到托盘后程序继续运行，挂载和挂载命令保持可用；退出会先上传未同步的文件，再卸载。</p>
+    <label class="check"><input type="checkbox" id="rememberClose"> 记住我的选择（可在「目录挂载」页底部修改）</label>
+    <div class="dialog-actions">
+      <button class="btn" id="closeQuitBtn">退出 FileLoad</button>
+      <button class="btn primary" id="closeTrayBtn">最小化到托盘</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+</body>
+</html>
