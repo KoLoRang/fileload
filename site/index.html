@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FileLoad — Claude Code on your server, from anywhere</title>
+  <meta name="description" content="Mount a remote SSH directory as a local drive or folder and launch Claude Code (or any CLI) on your server from any local terminal, password-free. Free and open source for Windows and macOS.">
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  <link rel="apple-touch-icon" href="assets/icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="FileLoad — Claude Code on your server, from anywhere">
+  <meta property="og:description" content="Type `claude` locally, run it on your server, and watch every edit in a mounted local folder. Windows & macOS, open source.">
+  <meta property="og:url" content="https://kolorang.github.io/fileload/">
+  <meta property="og:image" content="https://kolorang.github.io/fileload/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#"><img src="assets/icon.png" alt="" width="28" height="28">FileLoad</a>
+    <nav>
+      <a href="#claude" data-i18n="nav.claude">Claude Code</a>
+      <a href="#features" data-i18n="nav.features">Features</a>
+      <a href="#faq" data-i18n="nav.faq">FAQ</a>
+      <a href="https://github.com/KoLoRang/fileload" class="gh">GitHub</a>
+      <button id="langBtn" class="lang" type="button" aria-label="Switch language">中文</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-text">
+        <p class="eyebrow" data-i18n="hero.eyebrow">Free &amp; open source · Windows · macOS</p>
+        <h1 data-i18n-html="hero.title">Claude Code on your server.<br><span class="grad">From any laptop.</span></h1>
+        <p class="lead" data-i18n="hero.lead">Type <code>claude</code> in a local terminal and it runs on your server, right in the project directory. The same directory is mounted locally, so you can watch and review every edit in your own editor.</p>
+        <div class="cta">
+          <a class="btn primary" id="dlPrimary" href="https://github.com/KoLoRang/fileload/releases/latest">
+            <span data-i18n="cta.download">Download</span> <span id="dlPrimaryOs"></span>
+          </a>
+          <a class="btn" href="https://github.com/KoLoRang/fileload" data-i18n="cta.star">★ Star on GitHub</a>
+        </div>
+        <p class="small muted" id="dlMeta"><span data-i18n="cta.other">Other platforms:</span>
+          <a id="dlWin" href="https://github.com/KoLoRang/fileload/releases/latest">Windows</a> ·
+          <a id="dlMac" href="https://github.com/KoLoRang/fileload/releases/latest">macOS</a>
+          <span id="dlVersion"></span></p>
+      </div>
+
+      <div class="demo" aria-hidden="true">
+        <div class="win term">
+          <div class="bar"><i></i><i></i><i></i><span>~/FileLoad/my-app — zsh</span></div>
+          <pre><span class="p">~/FileLoad/my-app $</span> claude
+<span class="dim">→ dev@gpu-box · /home/dev/my-app</span>
+
+<span class="c">✻ Claude Code</span>
+<span class="dim">&gt;</span> add rate limiting to the API
+<span class="c">●</span> Update(<b>src/server.ts</b>)
+  <span class="add">+ app.use(rateLimit({ windowMs: 60_000, max: 100 }))</span>
+<span class="c">●</span> Bash(npm test) <span class="ok">✓ 42 passed</span></pre>
+        </div>
+        <div class="win files">
+          <div class="bar"><i></i><i></i><i></i><span>my-app</span></div>
+          <ul>
+            <li class="d">src</li>
+            <li class="f mod">server.ts <em data-i18n="demo.modified">modified just now</em></li>
+            <li class="f">routes.ts</li>
+            <li class="f">package.json</li>
+            <li class="f">README.md</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="claude" class="band">
+      <h2 data-i18n="claude.title">Your agent runs next to the code. You stay wherever you are.</h2>
+      <div class="cards3">
+        <div class="card">
+          <div class="num">1</div>
+          <h3 data-i18n="claude.c1.t">Type <code>claude</code> locally</h3>
+          <p data-i18n="claude.c1.p">A built-in SSH proxy logs you in (no password or key prompts) and starts Claude Code inside the mounted project directory. Sub-folders map to remote sub-folders.</p>
+        </div>
+        <div class="card">
+          <div class="num">2</div>
+          <h3 data-i18n="claude.c2.t">Watch every edit</h3>
+          <p data-i18n="claude.c2.p">The directory is mounted as a local drive or folder. Open it in VS Code, Finder or Explorer and review the agent's changes as it works; every open is checked against the server.</p>
+        </div>
+        <div class="card">
+          <div class="num">3</div>
+          <h3 data-i18n="claude.c3.t">Close the lid</h3>
+          <p data-i18n="claude.c3.p">Code, builds and the agent live on the server. Set the command to <code>tmux new -As claude claude</code> and the session survives disconnects.</p>
+        </div>
+      </div>
+      <p class="center muted" data-i18n="claude.more">Works the same for codex, aider, gemini or any CLI — one custom command each.</p>
+    </section>
+
+    <section class="shots">
+      <figure>
+        <img src="assets/screenshot-commands.png" alt="Commands page with rcd, claude and codex" loading="lazy">
+        <figcaption data-i18n="shots.cmd">Commands: <code>rcd</code>, <code>claude</code>, <code>codex</code> — ready in any new terminal</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/screenshot-mount.png" alt="Directory mount page" loading="lazy">
+        <figcaption data-i18n="shots.mount">Directory mount: connect, pick a remote folder, mount</figcaption>
+      </figure>
+    </section>
+
+    <section id="features" class="band">
+      <h2 data-i18n="features.title">Everything you need, nothing on the server</h2>
+      <div class="grid">
+        <div class="feat"><h3 data-i18n="f1.t">Plain SSH/SFTP</h3><p data-i18n="f1.p">Nothing to install on the server. WinFsp on Windows, FUSE-T on macOS (no kernel extension).</p></div>
+        <div class="feat"><h3 data-i18n="f2.t">Fast local cache</h3><p data-i18n="f2.p">Files download once, then open instantly. Each open re-validates against the server.</p></div>
+        <div class="feat"><h3 data-i18n="f3.t">Write-back upload</h3><p data-i18n="f3.p">Saves land locally and upload in the background — even after a crash or power loss.</p></div>
+        <div class="feat"><h3 data-i18n="f4.t">Password-free commands</h3><p data-i18n="f4.p">Local commands reuse FileLoad's authenticated connection through a loopback proxy.</p></div>
+        <div class="feat"><h3 data-i18n="f5.t">Resilient</h3><p data-i18n="f5.p">Auto-reconnect, keepalive, one-click re-mount from history, tray/menu-bar mode.</p></div>
+        <div class="feat"><h3 data-i18n="f6.t">Auto-update</h3><p data-i18n="f6.p">New versions download, install and relaunch with one click.</p></div>
+      </div>
+    </section>
+
+    <section class="band steps">
+      <h2 data-i18n="steps.title">Up and running in a minute</h2>
+      <ol>
+        <li data-i18n-html="steps.1"><b>Install</b> — Windows installer (includes WinFsp) or macOS dmg.</li>
+        <li data-i18n-html="steps.2"><b>Connect &amp; mount</b> — host, user, key or password; pick a remote folder.</li>
+        <li data-i18n-html="steps.3"><b>Add <code>claude</code></b> — on the Commands page, then open a new terminal and type it.</li>
+      </ol>
+    </section>
+
+    <section id="faq" class="band faq">
+      <h2 data-i18n="faq.title">FAQ</h2>
+      <details><summary data-i18n="q1">Do I need to install anything on the server?</summary><p data-i18n="a1">Only an SSH server with SFTP (the OpenSSH default), plus the CLI you want to run there, such as Claude Code.</p></details>
+      <details><summary data-i18n="q2">Is the local proxy exposed to my network?</summary><p data-i18n="a2">No. It listens on 127.0.0.1 only, and only while a mount is active.</p></details>
+      <details><summary data-i18n="q3">macOS says the app can't be opened.</summary><p data-i18n="a3">The app isn't notarized yet. Right-click FileLoad in Applications › Open, once.</p></details>
+      <details><summary data-i18n="q4">What language is the app in?</summary><p data-i18n="a4">The UI is currently Simplified Chinese; English is on the roadmap.</p></details>
+      <details><summary data-i18n="q5">Is it free?</summary><p data-i18n="a5">Yes. FileLoad is MIT licensed. The macOS build bundles FUSE-T, which is free for non-commercial use.</p></details>
+    </section>
+  </main>
+
+  <footer>
+    <p><a href="https://github.com/KoLoRang/fileload">GitHub</a> · <a href="https://github.com/KoLoRang/fileload/releases" data-i18n="footer.releases">Releases</a> · <a href="https://github.com/KoLoRang/fileload/blob/main/LICENSE">MIT License</a></p>
+    <p class="muted small" data-i18n="footer.note">FileLoad is an independent open-source project and is not affiliated with Anthropic.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
